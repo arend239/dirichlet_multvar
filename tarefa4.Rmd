@@ -1,0 +1,177 @@
+---
+title: "TAREFA 4 Análise de Tópicos com LDA em Resenhas de Filmes (IMDB) - Análise Multivariada"
+author: "Márcia Barbian"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+# install.packages(c("tidytext", "textdata", "dplyr", "ggplot2", "tm", "topicmodels", "textclean"))
+
+library(tidytext)
+library(textdata)
+library(dplyr)
+library(ggplot2)
+library(tm)
+library(topicmodels)
+library(textclean)
+library(readr)
+library(stringr)
+library(janeaustenr)
+library(stm)
+library(wordcloud)
+```
+
+
+## Objetivo
+
+Este exercício tem como objetivo identificar **tópicos latentes** em resenhas de filmes utilizando o modelo **LDA (Latent Dirichlet Allocation)** com dados reais da base IMDB. O banco de dados está disponível no link: http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz
+Descompacte esse arquivo e coloque a pasta aclImdb na mesma pasta do projeto da tarefa 4.
+
+OBS: A base é muito grande, então você deve escolher um parte dela.
+
+
+Antes de fazer o exerício veja os vídeos: https://www.youtube.com/watch?v=T05t-SqKArY&t=1473s e https://www.youtube.com/watch?v=BaM1uiCpj_E
+
+Veja o livro: https://www.tidytextmining.com/
+
+```{r}
+# Carregar base IMDB reduzida (1000 exemplos)
+
+path_pos <- "aclImdb/train/pos"
+path_neg <- "aclImdb/train/neg"
+
+# Listar os arquivos .txt
+files_pos <- list.files(path_pos, full.names = TRUE)
+files_neg <- list.files(path_neg, full.names = TRUE)
+
+head(files_pos)
+
+files_pos_amostra = files_pos[sample(1:length(files_pos), 500)]
+files_neg_amostra  = files_neg[sample(1:length(files_neg), 500)]
+
+# Ler os textos
+pos_reviews <- sapply(files_pos_amostra, read_file)
+neg_reviews <- sapply(files_neg_amostra, read_file)
+
+# Montar data frame com rótulo
+imdb <- data.frame(
+  review = c(pos_reviews, neg_reviews),
+  sentiment = c(rep("pos", length(pos_reviews)), rep("neg", length(neg_reviews))),
+  stringsAsFactors = FALSE
+)
+
+# Visualizar
+head(imdb)
+
+```
+
+```{r}
+# Substituir contrações e símbolos
+imdb$review <- replace_contraction(imdb$review)
+imdb$review <- replace_symbol(imdb$review)
+
+# Criar corpus e limpar
+corpus <- Corpus(VectorSource(imdb$review))
+corpus <- tm_map(corpus, content_transformer(tolower))
+corpus <- tm_map(corpus, removePunctuation)
+corpus <- tm_map(corpus, removeNumbers)
+corpus <- tm_map(corpus, removeWords, stopwords("en"))
+corpus <- tm_map(corpus, stripWhitespace)
+
+# Matriz documento-termo
+dtm <- DocumentTermMatrix(corpus)
+dtm <- removeSparseTerms(dtm, 0.99)
+```
+
+## Palavras mais frequentes
+
+```{r}
+
+# Transformar em tibble para tidytext
+reviews_tbl <- tibble(document = 1:length(imdb$review), text = imdb$review)
+
+# Tokenizar, remover stopwords e contar frequências
+word_freq <- reviews_tbl %>%
+  unnest_tokens(word, text) %>%
+  filter(!word %in% stop_words$word,
+         str_detect(word, "^[a-z']+$")) %>%
+  count(word, sort = TRUE)
+
+# Mostrar top 15 palavras
+head(word_freq, 15)
+
+# Gráfico das 20 palavras mais frequentes
+word_freq %>%
+  top_n(20, n) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(title = "20 palavras mais frequentes nas resenhas",
+       x = "Palavra", y = "Frequência")
+
+```
+
+
+# Questões
+
+
+## Questão 1 
+
+### a) Algum tópico parece estar relacionado a emoção ou julgamento dos filmes? (ex: *great*, *bad*, *boring*).  Quais palavras caracterizam cada um dos 4 tópicos? Dê um título para cada um. Dica: faça uma nuvem de palavras para cada tópico.
+
+```{r}
+library(quanteda)
+
+dtm_tidy <- tidy(dtm) 
+ap_dfm <- dtm_tidy %>%
+  cast_dfm(document = document, term = term, value = count)
+
+ap_lda <- stm(ap_dfm, K = 4, verbose = FALSE, init.type = "LDA")
+summary(ap_lda)
+
+cloud(ap_lda, 1)
+cloud(ap_lda, 2)
+cloud(ap_lda, 3)
+cloud(ap_lda, 4)
+
+```
+
+
+### b) Indique a probabilidade das palavras para cada um dos tópicos, faça um gráfico com as 10 palavras mais prováveis por tópico.
+
+```{r}
+
+tidy (ap_lda) %>%
+  group_by(topic) %>%
+  top_n(10) %>%
+  ungroup() %>%
+  mutate(topic = str_c("topic", topic)) %>%
+  facet_bar(y = term, x = beta, by = topic)
+  
+```
+
+
+### c) Qual o tópico mais provável para cada documento? Sorteie 3 documentos e avalie essas probabilidades, o tópico mais provável faz sentido dado a divisão da letra a)?
+
+### d) Faça um gráfico com as frequencias da distribuição dos tópicos mais prováveis por documento.
+
+
+## Questão 2
+Altere o número de tópicos para `k = 6`. Refaça as análises da questão 1. Os temas ficaram mais claros ou mais difusos?  
+
+## Questão 3
+Altere o número de tópicos para `k = 2`. Os temas ficaram mais claros ou mais difusos?  
+
+## Questão 4
+Calcule a perplexidade para k=2, k=4 e k=6. Compare os resultados, qual modelo é o melhor considerando essa métrica? 
+
+## Questão 5
+Como esse tipo de análise pode ajudar empresas que coletam grandes volumes de texto (ex: SAC, redes sociais)?  
+
+
+
