@@ -23,6 +23,9 @@ library(stringr)
 library(janeaustenr)
 library(stm)
 library(wordcloud)
+library(MCMCpack)
+library(tidyverse)
+
 ```
 
 
@@ -125,7 +128,7 @@ word_freq %>%
 ### a) Algum tópico parece estar relacionado a emoção ou julgamento dos filmes? (ex: *great*, *bad*, *boring*).  Quais palavras caracterizam cada um dos 4 tópicos? Dê um título para cada um. Dica: faça uma nuvem de palavras para cada tópico.
 
 ```{r}
-library(quanteda)
+# library(quanteda)
 
 dtm_tidy <- tidy(dtm) 
 ap_dfm <- dtm_tidy %>%
@@ -146,12 +149,22 @@ cloud(ap_lda, 4)
 
 ```{r}
 
-tidy (ap_lda) %>%
+# Converter o modelo stm para formato tidy
+tidy_lda <- tidy(ap_lda)
+
+# Filtrar as top 10 palavras por tópico
+top_words <- tidy_lda %>%
   group_by(topic) %>%
-  top_n(10) %>%
-  ungroup() %>%
-  mutate(topic = str_c("topic", topic)) %>%
-  facet_bar(y = term, x = beta, by = topic)
+  slice_max(beta, n = 10) %>%
+  ungroup()
+
+# Gráfico
+ggplot(top_words, aes(x = reorder_within(term, beta, topic), y = beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~topic, scales = "free") +
+  coord_flip() +
+  scale_x_reordered() +
+  labs(x = NULL, y = "Probabilidade")
   
 ```
 
@@ -163,6 +176,23 @@ tidy (ap_lda) %>%
 
 ## Questão 2
 Altere o número de tópicos para `k = 6`. Refaça as análises da questão 1. Os temas ficaram mais claros ou mais difusos?  
+
+```{r}
+
+dtm_tidy <- tidy(dtm) 
+ap_dfm <- dtm_tidy %>%
+  cast_dfm(document = document, term = term, value = count)
+
+ap_lda <- stm(ap_dfm, K = 6, verbose = FALSE, init.type = "LDA")
+summary(ap_lda)
+
+cloud(ap_lda, 1)
+cloud(ap_lda, 2)
+cloud(ap_lda, 3)
+cloud(ap_lda, 4)
+cloud(ap_lda, 5)
+cloud(ap_lda, 6)
+```
 
 ## Questão 3
 Altere o número de tópicos para `k = 2`. Os temas ficaram mais claros ou mais difusos?  
