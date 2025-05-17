@@ -26,20 +26,18 @@ library(wordcloud)
 library(MCMCpack)
 library(tidyverse)
 
+set.seed(42)
 ```
-
 
 ## Objetivo
 
-Este exercício tem como objetivo identificar **tópicos latentes** em resenhas de filmes utilizando o modelo **LDA (Latent Dirichlet Allocation)** com dados reais da base IMDB. O banco de dados está disponível no link: http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz
-Descompacte esse arquivo e coloque a pasta aclImdb na mesma pasta do projeto da tarefa 4.
+Este exercício tem como objetivo identificar **tópicos latentes** em resenhas de filmes utilizando o modelo **LDA (Latent Dirichlet Allocation)** com dados reais da base IMDB. O banco de dados está disponível no link: <http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz> Descompacte esse arquivo e coloque a pasta aclImdb na mesma pasta do projeto da tarefa 4.
 
 OBS: A base é muito grande, então você deve escolher um parte dela.
 
+Antes de fazer o exerício veja os vídeos: <https://www.youtube.com/watch?v=T05t-SqKArY&t=1473s> e <https://www.youtube.com/watch?v=BaM1uiCpj_E>
 
-Antes de fazer o exerício veja os vídeos: https://www.youtube.com/watch?v=T05t-SqKArY&t=1473s e https://www.youtube.com/watch?v=BaM1uiCpj_E
-
-Veja o livro: https://www.tidytextmining.com/
+Veja o livro: <https://www.tidytextmining.com/>
 
 ```{r}
 # Carregar base IMDB reduzida (1000 exemplos)
@@ -73,6 +71,7 @@ head(imdb)
 ```
 
 ```{r}
+
 # Substituir contrações e símbolos
 imdb$review <- replace_contraction(imdb$review)
 imdb$review <- replace_symbol(imdb$review)
@@ -88,6 +87,7 @@ corpus <- tm_map(corpus, stripWhitespace)
 # Matriz documento-termo
 dtm <- DocumentTermMatrix(corpus)
 dtm <- removeSparseTerms(dtm, 0.99)
+dtm
 ```
 
 ## Palavras mais frequentes
@@ -119,38 +119,40 @@ word_freq %>%
 
 ```
 
-
 # Questões
 
+## Questão 1
 
-## Questão 1 
-
-### a) Algum tópico parece estar relacionado a emoção ou julgamento dos filmes? (ex: *great*, *bad*, *boring*).  Quais palavras caracterizam cada um dos 4 tópicos? Dê um título para cada um. Dica: faça uma nuvem de palavras para cada tópico.
+### 1a) Algum tópico parece estar relacionado a emoção ou julgamento dos filmes? (ex: *great*, *bad*, *boring*). Quais palavras caracterizam cada um dos 4 tópicos? Dê um título para cada um. Dica: faça uma nuvem de palavras para cada tópico.
 
 ```{r}
-# library(quanteda)
 
-dtm_tidy <- tidy(dtm) 
-ap_dfm <- dtm_tidy %>%
-  cast_dfm(document = document, term = term, value = count)
+dfm <- tidy(dtm) %>%
+  cast_dfm(document = document, 
+           term = term, 
+           value = count)
 
-ap_lda <- stm(ap_dfm, K = 4, verbose = FALSE, init.type = "LDA")
-summary(ap_lda)
+lda4 <- stm(dfm, 
+            K = 4, 
+            verbose = FALSE, 
+            init.type = "LDA",
+            seed = 42)
 
-cloud(ap_lda, 1)
-cloud(ap_lda, 2)
-cloud(ap_lda, 3)
-cloud(ap_lda, 4)
+cloud(lda4, 1)
+cloud(lda4, 2)
+cloud(lda4, 3)
+cloud(lda4, 4)
 
+summary(lda4)
+plot(lda4)
 ```
-
 
 ### b) Indique a probabilidade das palavras para cada um dos tópicos, faça um gráfico com as 10 palavras mais prováveis por tópico.
 
 ```{r}
 
 # Converter o modelo stm para formato tidy
-tidy_lda <- tidy(ap_lda)
+tidy_lda <- tidy(lda4)
 
 # Filtrar as top 10 palavras por tópico
 top_words <- tidy_lda %>%
@@ -168,40 +170,256 @@ ggplot(top_words, aes(x = reorder_within(term, beta, topic), y = beta, fill = fa
   
 ```
 
-
 ### c) Qual o tópico mais provável para cada documento? Sorteie 3 documentos e avalie essas probabilidades, o tópico mais provável faz sentido dado a divisão da letra a)?
-
-### d) Faça um gráfico com as frequencias da distribuição dos tópicos mais prováveis por documento.
-
-
-## Questão 2
-Altere o número de tópicos para `k = 6`. Refaça as análises da questão 1. Os temas ficaram mais claros ou mais difusos?  
 
 ```{r}
 
-dtm_tidy <- tidy(dtm) 
-ap_dfm <- dtm_tidy %>%
-  cast_dfm(document = document, term = term, value = count)
+set.seed(42)
 
-ap_lda <- stm(ap_dfm, K = 6, verbose = FALSE, init.type = "LDA")
-summary(ap_lda)
+doc_topics <- tidy(lda4, matrix = "gamma")
 
-cloud(ap_lda, 1)
-cloud(ap_lda, 2)
-cloud(ap_lda, 3)
-cloud(ap_lda, 4)
-cloud(ap_lda, 5)
-cloud(ap_lda, 6)
+plot(lda4)
+docs_samp <- sample(1:nrow(lda4$theta), 3)
+
+prob <- lda4$theta[docs_samp, ]
+top  <- apply(prob, 1, which.max)
+
+resum <- data.frame(
+  doc      = docs_samp,
+  prob_top = top,
+  ps = apply(prob, 1, function(x) paste(x, collapse = "; "))
+)
+
+resum
 ```
 
+### d) Faça um gráfico com as frequencias da distribuição dos tópicos mais prováveis por documento.
+
+```{r}
+
+topic_distribution <- doc_topics %>%
+  group_by(document) %>%
+  slice_max(gamma, n = 1) %>%
+  ungroup()
+
+ggplot(topic_distribution, aes(x = factor(topic), fill = factor(topic))) +
+  geom_bar(stat = "count") +
+  labs(
+    x = "Tópico",
+    y = "Número de Documentos",
+    title = "Distribuição dos Tópicos Mais Prováveis por Documento",
+    fill = "Tópico"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette = "Set2")
+
+```
+
+## Questão 2
+
+Altere o número de tópicos para `k = 6`. Refaça as análises da questão 1. Os temas ficaram mais claros ou mais difusos?
+
+### 2a)
+
+```{r}
+
+dfm <- tidy(dtm) %>%
+  cast_dfm(document = document, 
+           term = term, 
+           value = count)
+
+lda6 <- stm(dfm, 
+            K = 6, 
+            verbose = FALSE, 
+            init.type = "LDA",
+            seed = 42)
+
+cloud(lda6, 1)
+cloud(lda6, 2)
+cloud(lda6, 3)
+cloud(lda6, 4)
+
+summary(lda6)
+plot(lda6)
+```
+
+### 2b)
+
+```{r}
+
+# Converter o modelo stm para formato tidy
+tidy_lda <- tidy(lda6)
+
+# Filtrar as top 10 palavras por tópico
+top_words <- tidy_lda %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10) %>%
+  ungroup()
+
+# Gráfico
+ggplot(top_words, aes(x = reorder_within(term, beta, topic), y = beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~topic, scales = "free") +
+  coord_flip() +
+  scale_x_reordered() +
+  labs(x = NULL, y = "Probabilidade")
+  
+```
+
+### 2c)
+
+```{r}
+
+set.seed(42)
+
+doc_topics <- tidy(lda6, matrix = "gamma")
+
+plot(lda6)
+docs_samp <- sample(1:nrow(lda6$theta), 3)
+
+prob <- lda6$theta[docs_samp, ]
+top  <- apply(prob, 1, which.max)
+
+resum <- data.frame(
+  doc      = docs_samp,
+  prob_top = top,
+  ps = apply(prob, 1, function(x) paste(x, collapse = "; "))
+)
+
+resum
+```
+
+### 2d)
+
+```{r}
+
+topic_distribution <- doc_topics %>%
+  group_by(document) %>%
+  slice_max(gamma, n = 1) %>%
+  ungroup()
+
+ggplot(topic_distribution, aes(x = factor(topic), fill = factor(topic))) +
+  geom_bar(stat = "count") +
+  labs(
+    x = "Tópico",
+    y = "Número de Documentos",
+    title = "Distribuição dos Tópicos Mais Prováveis por Documento",
+    fill = "Tópico"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette = "Set2")
+
+```
+
+### Conclusão sobre os tópicos; 
+
 ## Questão 3
-Altere o número de tópicos para `k = 2`. Os temas ficaram mais claros ou mais difusos?  
+
+Altere o número de tópicos para `k = 2`. Os temas ficaram mais claros ou mais difusos?
+
+### 3a)
+
+```{r}
+
+dfm <- tidy(dtm) %>%
+  cast_dfm(document = document, 
+           term = term, 
+           value = count)
+
+lda2 <- stm(dfm, 
+            K = 2, 
+            verbose = FALSE, 
+            init.type = "LDA",
+            seed = 42)
+
+cloud(lda2, 1)
+cloud(lda2, 2)
+
+summary(lda2)
+plot(lda2)
+```
+
+### 3b)
+
+```{r}
+# Converter o modelo stm para formato tidy
+tidy_lda <- tidy(lda2)
+
+# Filtrar as top 10 palavras por tópico
+top_words <- tidy_lda %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10) %>%
+  ungroup()
+
+# Gráfico
+ggplot(top_words, aes(x = reorder_within(term, beta, topic), y = beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~topic, scales = "free") +
+  coord_flip() +
+  scale_x_reordered() +
+  labs(x = NULL, y = "Probabilidade")
+```
+
+### 3c)
+
+```{r}
+set.seed(42)
+
+doc_topics <- tidy(lda2, matrix = "gamma")
+
+plot(lda2)
+docs_samp <- sample(1:nrow(lda2$theta), 3)
+
+prob <- lda2$theta[docs_samp, ]
+top  <- apply(prob, 1, which.max)
+
+resum <- data.frame(
+  doc      = docs_samp,
+  prob_top = top,
+  ps = apply(prob, 1, function(x) paste(x, collapse = "; "))
+)
+
+resum
+```
+
+### 3d)
+
+```{r}
+
+topic_distribution <- doc_topics %>%
+  group_by(document) %>%
+  slice_max(gamma, n = 1) %>%
+  ungroup()
+
+ggplot(topic_distribution, aes(x = factor(topic), fill = factor(topic))) +
+  geom_bar(stat = "count") +
+  labs(
+    x = "Tópico",
+    y = "Número de Documentos",
+    title = "Distribuição dos Tópicos Mais Prováveis por Documento",
+    fill = "Tópico"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette = "Set2")
+
+```
+
+### Conclusão sobre os tópicos;
 
 ## Questão 4
-Calcule a perplexidade para k=2, k=4 e k=6. Compare os resultados, qual modelo é o melhor considerando essa métrica? 
+
+Calcule a perplexidade para k=2, k=4 e k=6. Compare os resultados, qual modelo é o melhor considerando essa métrica?
+
+```{r}
+
+perplexity(lda2, dtm)
+perplexity(lda4, dtm)
+perplexity(lda6, dtm)
+```
 
 ## Questão 5
-Como esse tipo de análise pode ajudar empresas que coletam grandes volumes de texto (ex: SAC, redes sociais)?  
 
-
-
+Como esse tipo de análise pode ajudar empresas que coletam grandes volumes de texto (ex: SAC, redes sociais)?
