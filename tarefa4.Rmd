@@ -147,7 +147,7 @@ summary(lda4)
 plot(lda4)
 ```
 
-### b) Indique a probabilidade das palavras para cada um dos tópicos, faça um gráfico com as 10 palavras mais prováveis por tópico.
+### 1b) Indique a probabilidade das palavras para cada um dos tópicos, faça um gráfico com as 10 palavras mais prováveis por tópico.
 
 ```{r}
 
@@ -170,7 +170,7 @@ ggplot(top_words, aes(x = reorder_within(term, beta, topic), y = beta, fill = fa
   
 ```
 
-### c) Qual o tópico mais provável para cada documento? Sorteie 3 documentos e avalie essas probabilidades, o tópico mais provável faz sentido dado a divisão da letra a)?
+### 1c) Qual o tópico mais provável para cada documento? Sorteie 3 documentos e avalie essas probabilidades, o tópico mais provável faz sentido dado a divisão da letra a)?
 
 ```{r}
 
@@ -193,7 +193,7 @@ resum <- data.frame(
 resum
 ```
 
-### d) Faça um gráfico com as frequencias da distribuição dos tópicos mais prováveis por documento.
+### 1d) Faça um gráfico com as frequencias da distribuição dos tópicos mais prováveis por documento.
 
 ```{r}
 
@@ -415,9 +415,15 @@ Calcule a perplexidade para k=2, k=4 e k=6. Compare os resultados, qual modelo �
 
 ```{r}
 
-perplexity(lda2, dtm)
-perplexity(lda4, dtm)
-perplexity(lda6, dtm)
+perp <- data.frame(K = c(), Perplexidade = c())
+
+for (k in c(2, 4, 6)) {
+  lda_model <- LDA(dtm, k = k, control = list(seed = 42))
+  perplex <- perplexity(lda_model, dtm)
+  perp <- rbind(perp, data.frame(K = k, Perplexidade = perplex))
+}
+
+perp
 ```
 
 ## Questão 5
