@@ -147,6 +147,18 @@ summary(lda4)
 plot(lda4)
 ```
 
+Utilizando as nuvens de palavras + as palavras apresentadas no *summary*; 
+
+- Tópico 1: **enredo**
+  Palavras usadas: "funny", "original", "hollywood", "real", "characters"...
+- Tópico 2: **comparação**
+  Palavras usadas: "better", "even", "work", "look", "quite"...
+- Tópico 3: **reações/julgamento**
+  Palavras usadas: "bad", "stupid", "love", "think", "really"...
+- Tópico 4: **qualidade/característica**
+  Palavras usadas: "good", "actually", "actors", "old", "pretty", "director", "time"...
+  
+
 ### 1b) Indique a probabilidade das palavras para cada um dos tópicos, faça um gráfico com as 10 palavras mais prováveis por tópico.
 
 ```{r}
@@ -191,7 +203,11 @@ resum <- data.frame(
 )
 
 resum
+
+imdb$review[resum$doc]
 ```
+
+Considerando as palavras usadas e o fato de que os tópicos são de certa forma "genéricos" podemos dizer que faz sentido essa classificação, apesar de ser difícil a diferenciação entre tópicos. 
 
 ### 1d) Faça um gráfico com as frequencias da distribuição dos tópicos mais prováveis por documento.
 
@@ -243,6 +259,7 @@ cloud(lda6, 4)
 summary(lda6)
 plot(lda6)
 ```
+
 
 ### 2b)
 
@@ -314,6 +331,10 @@ ggplot(topic_distribution, aes(x = factor(topic), fill = factor(topic))) +
 ```
 
 ### Conclusão sobre os tópicos; 
+
+A separação proporcionou mais clareza em relação a k = 4. 
+Como podemos ver no item c a probabilidade não ficou tão equilibrada entre todos os tópicos como anteriormente. Os tópicos também estão menos "genéricos".
+
 
 ## Questão 3
 
@@ -409,6 +430,8 @@ ggplot(topic_distribution, aes(x = factor(topic), fill = factor(topic))) +
 
 ### Conclusão sobre os tópicos;
 
+Com apenas 2 tópicos podemos ver uma distinção entre eles mas é difícil defini-los. Os tópicos ficam mais genéricos e menos claros/objetivos.
+
 ## Questão 4
 
 Calcule a perplexidade para k=2, k=4 e k=6. Compare os resultados, qual modelo é o melhor considerando essa métrica?
@@ -425,7 +448,11 @@ for (k in c(2, 4, 6)) {
 
 perp
 ```
+Por essa métrica temos uma diferença muito pequena entre os modelos, mas o modelo com k = 2 é ligeiramente melhor, já que para perplexidade quanto menor melhor.
 
 ## Questão 5
 
 Como esse tipo de análise pode ajudar empresas que coletam grandes volumes de texto (ex: SAC, redes sociais)?
+
+Dependendo do ramo da empresa, essa análise pode contribuir muito com a atividade fim, por exemplo: 
+empresas de SAC podem identificar problemas/reclamações + recorrentes, automatizar respostas, captar melhor o feedbacks recebidos... Redes sociais podem determinar temas relevantes, segmentar usuários, melhorar recomendações/publicidades...
